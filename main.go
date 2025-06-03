@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/kennyparsons/gitbak/config"
 	"github.com/kennyparsons/gitbak/backup"
+	"github.com/kennyparsons/gitbak/config"
 	"github.com/kennyparsons/gitbak/git"
+	"github.com/kennyparsons/gitbak/restore"
 )
 
 func printHelp() {
@@ -16,12 +17,16 @@ Usage: gitbak <command> [flags]
 
 Commands:
   backup    Copy all configured files into the backup_dir and commit to Git.
-  restore   Reverse backup for custom apps (not implemented yet).
+  restore   Restore files from backup to their original locations.
 
 Flags:
   --config string   Path to config file (default "./gitbak.json")
   --dry-run         Print actions without actually performing them.
-`)
+
+When restoring, if a file already exists, you'll be prompted to:
+  (s)kip: Skip this file
+  (o)verwrite: Replace the existing file
+  (b)ackup: Create a backup of the existing file before restoring`)
 }
 
 func main() {
@@ -56,7 +61,10 @@ func main() {
 			os.Exit(1)
 		}
 	case "restore":
-		fmt.Println("Restore not implemented yet.")
+		if err := restore.Restore(cfg, *dryRun); err != nil {
+			fmt.Fprintf(os.Stderr, "Restore failed: %v\n", err)
+			os.Exit(1)
+		}
 	default:
 		printHelp()
 		os.Exit(1)
