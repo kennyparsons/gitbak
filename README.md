@@ -1,6 +1,10 @@
 # GitBak
 Get your dotfiles/config files backed up and managed with git.
 
+## GO ON, GIT!
+![GIT!](https://gifs.kennyparsons.com/git.gif)
+
+
 GitBak is a simple tool to help you back up your dotfiles and configuration files using Git. It reads a configuration file (`gitbak.json`) to determine which files and directories to back up. 
 
 > Note: It can also work with mackup-supported applications. This is a work in progress and might break. The easiest solution is to just use `mackup show <appname>` to list the files/directories you need to back up and configure them in the `gitbak.json`.
@@ -24,11 +28,18 @@ chmod +x gitbak
 ```
 
 ### Commands
-- `backup`   Copy configured files to the backup directory and commit to Git
-- `restore`  (Coming soon) Restore files from the backup directory
+
+| Command | Description |
+|---------|-------------|
+| backup  | Copy configured files to the backup directory and commit to Git |
+| restore | Restore files from the backup directory |
 
 ### Flags
-- `--dry-run`  Print actions without making changes
+
+| Flag | Description |
+|------|-------------|
+| `--dry-run`  | Print actions without making changes |
+| `--config`   | Path to config file (default "./gitbak.json") |
 
 ## Configuration
 Edit `gitbak.json` to set:
@@ -42,8 +53,8 @@ Edit `gitbak.json` to set:
   "backup_dir": "/Users/kennyparsons/.dotfiles",
   "whitelist_backup_apps": [],
   "custom_apps": {
-    "ssh": [
-      "/Users/kennyparsons/.ssh"
+    "gitbak": [
+      "/Users/kennyparsons/.config/gitbak.gitbak.json"
     ]
   }
 }
@@ -56,10 +67,9 @@ Edit `gitbak.json` to set:
 
 ## Notes
 - The backup directory must be an existing Git repository.
-- Only the `backup` command is implemented.
 - Absolute paths are required in `gitbak.json`. Do not use `~` or relative paths.
 
 ## Inspiration
-Wanting to make a more extensible and flexible tool for managing dotfiles, I created GitBak. It is inspired by the stupid simple usage of alias and git commands from coworkers, as well as the simplicity of tools like `mackup`. 
+I built GitBak because I wanted a more flexible way to manage my dotfiles. I was inspired by the simplicity of tools like `mackup`, but I wanted more control over what gets backed up and how. For example, I wanted to be able to simply copy files instead of symlinking them, which can be problematic in some cases. GitBak also requires a Git repository for version control, which is a key feature.
 
-However, a core need for gitbak is more control over what gets backed up and how. Also, as of the time of release, `mackup` *only* symlinks files, which can be problematic for some use cases. `Gitbak` solves this by simply copying the configured directories/files to the specified repo. `Mackup` also does not assume the use of a git repo for version control, which is a key feature of GitBak.
+Thanks to some awesome coworkers for the inspiration and starting point to build on. 
