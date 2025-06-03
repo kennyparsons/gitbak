@@ -12,14 +12,15 @@ import (
 
 func printHelp() {
 	fmt.Println(`
-Usage: gitbak <command> [--dry-run]
+Usage: gitbak <command> [flags]
 
 Commands:
   backup    Copy all configured files into the backup_dir and commit to Git.
   restore   Reverse backup for custom apps (not implemented yet).
 
 Flags:
-  --dry-run  Print actions without actually performing them.
+  --config string   Path to config file (default "./gitbak.json")
+  --dry-run         Print actions without actually performing them.
 `)
 }
 
@@ -31,9 +32,10 @@ func main() {
 
 	cmd := os.Args[1]
 	dryRun := flag.Bool("dry-run", false, "Print steps without executing")
+	configPath := flag.String("config", "./gitbak.json", "Path to config file (default: ./gitbak.json)")
 	flag.CommandLine.Parse(os.Args[2:])
 
-	cfg, err := config.LoadConfig("./gitbak.json")
+	cfg, err := config.LoadConfig(*configPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
 		os.Exit(1)
