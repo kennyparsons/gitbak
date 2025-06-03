@@ -43,14 +43,14 @@ Edit `gitbak.json` to set:
   "whitelist_backup_apps": [],
   "custom_apps": {
     "ssh": [
-      "/Users/kennyparsons/.config/iterm2/AppSupport/DynamicProfiles"
+      "/Users/kennyparsons/.ssh"
     ]
   }
 }
 ```
 
 ## Requirements
-- Go 1.18+
+- Go 1.23+
 - Git
 - (Optional) Mackup for listing supported apps
 
