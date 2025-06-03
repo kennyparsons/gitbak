@@ -35,27 +35,38 @@ func copyDir(srcDir, dstDirRoot string, dryRun bool) error {
 	})
 }
 
-// copyFile copies a single file: srcFile → dstDirRoot/<basename(srcFile)>
-func copyFile(srcFile, dstDirRoot string, dryRun bool) error {
-	base := filepath.Base(srcFile)
-	dst := filepath.Join(dstDirRoot, base)
+// copyFile copies a single file to the specified destination path
+// If dstDirRoot is a directory, the file will be placed inside it with its original name
+// If dstDirRoot is a file path, it will be used as the exact destination path
+func copyFile(srcFile, dstPath string, dryRun bool) error {
+	// Check if dstPath is a directory (ends with a separator or is an existing directory)
+	if dstInfo, err := os.Stat(dstPath); err == nil && dstInfo.IsDir() {
+		// If it's a directory, append the source filename
+		dstPath = filepath.Join(dstPath, filepath.Base(srcFile))
+	}
+
 	if dryRun {
-		fmt.Printf("[dry-run] CopyFile %s → %s\n", srcFile, dst)
+		fmt.Printf("[dry-run] CopyFile %s → %s\n", srcFile, dstPath)
 		return nil
 	}
-	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+
+	// Create the destination directory if it doesn't exist
+	if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
 		return err
 	}
+
 	in, err := os.Open(srcFile)
 	if err != nil {
 		return err
 	}
 	defer in.Close()
-	out, err := os.Create(dst)
+
+	out, err := os.Create(dstPath)
 	if err != nil {
 		return err
 	}
 	defer out.Close()
+
 	_, err = io.Copy(out, in)
 	return err
 }
