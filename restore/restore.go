@@ -21,23 +21,24 @@ func Restore(cfg *config.Config, dryRun bool) error {
 
 		// For each source path in the app's configuration
 		for _, srcPath := range srcPaths {
-			// Determine the backup path - this needs to match how backup works
+			// Expand the source path (handle ~/ and relative paths)
 			expandedSrc := expandPath(srcPath)
 			
-			// For files, the backup path is simply backupAppDir + filename
-			// For directories, it's backupAppDir/dirname/...
-			backupPath := filepath.Join(backupAppDir, filepath.Base(expandedSrc))
+			// The backup path is in the app's directory
+			// For files: backupAppDir/filename
+			// For directories: backupAppDir/dirname/...
+			srcBase := filepath.Base(expandedSrc)
+			backupPath := filepath.Join(backupAppDir, srcBase)
 
-			// Handle the restore based on whether it's a file or directory
+			// Check if the backup exists
+			if _, err := os.Stat(backupPath); os.IsNotExist(err) {
+				// If not found, try the old format (for backward compatibility)
+				backupPath = filepath.Join(backupAppDir, filepath.Base(expandedSrc))
+			}
+
+			// Handle the restore
 			if err := restorePath(backupPath, srcPath, dryRun); err != nil {
-				// If we couldn't find it as a file, try looking for it as a directory
-				if os.IsNotExist(err) {
-					backupPath = filepath.Join(backupAppDir, filepath.Base(expandedSrc))
-					err = restorePath(backupPath, srcPath, dryRun)
-				}
-				if err != nil {
-					fmt.Printf("  [error] restoring %s: %v\n", srcPath, err)
-				}
+				fmt.Printf("  [error] restoring %s: %v\n", srcPath, err)
 			}
 		}
 	}
@@ -66,16 +67,24 @@ func restorePath(backupPath, originalPath string, dryRun bool) error {
 	if strings.HasPrefix(originalPath, "~/") {
 		home, _ := os.UserHomeDir()
 		expandedOriginal = filepath.Join(home, originalPath[2:])
+	} else if !filepath.IsAbs(originalPath) {
+		// Handle relative paths (assume relative to home)
+		home, _ := os.UserHomeDir()
+		expandedOriginal = filepath.Join(home, originalPath)
 	}
 
 	// Check if the backup path exists
 	backupInfo, err := os.Stat(backupPath)
 	if os.IsNotExist(err) {
-		// Check if it's a file that was backed up directly
-		backupPath = filepath.Join(filepath.Dir(backupPath), filepath.Base(originalPath))
+		// If not found, try to find the backup in the new structure
+		// For directories, the backup might be in backupAppDir/dirname
+		backupDir := filepath.Dir(backupPath)
+		srcBase := filepath.Base(expandedOriginal)
+		backupPath = filepath.Join(backupDir, srcBase)
+		
 		backupInfo, err = os.Stat(backupPath)
 		if os.IsNotExist(err) {
-			return fmt.Errorf("backup not found: %s", backupPath)
+			return fmt.Errorf("backup not found: %s (tried %s)", filepath.Base(expandedOriginal), backupPath)
 		}
 	} else if err != nil {
 		return fmt.Errorf("error checking backup path: %v", err)
@@ -164,8 +173,19 @@ func restoreFile(src, dst string, dryRun bool) error {
 func restoreDirectory(src, dst string, dryRun bool) error {
 	if dryRun {
 		fmt.Printf("[dry-run] Restore directory %s → %s\n", src, dst)
-	} else {
-		fmt.Printf("  [restoring directory] %s\n", dst)
+		return nil
+	}
+
+	fmt.Printf("  [restoring directory] %s\n", dst)
+
+	// First, ensure the source directory exists
+	if _, err := os.Stat(src); err != nil {
+		return fmt.Errorf("failed to get source directory info: %v", err)
+	}
+
+	// Create the destination directory with the same permissions as source
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return fmt.Errorf("failed to create parent directory: %v", err)
 	}
 
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
@@ -176,18 +196,24 @@ func restoreDirectory(src, dst string, dryRun bool) error {
 		// Calculate the relative path from the source directory
 		relPath, err := filepath.Rel(src, path)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get relative path: %v", err)
 		}
 
 		dstPath := filepath.Join(dst, relPath)
 
 		if info.IsDir() {
-			if !dryRun {
-				return os.MkdirAll(dstPath, info.Mode())
+			// Create the directory with the same permissions as source
+			if err := os.MkdirAll(dstPath, info.Mode()); err != nil {
+				return fmt.Errorf("failed to create directory %s: %v", dstPath, err)
+			}
+			// Set directory permissions
+			if err := os.Chmod(dstPath, info.Mode()); err != nil {
+				return fmt.Errorf("failed to set permissions for %s: %v", dstPath, err)
 			}
 			return nil
 		}
 
+		// For files, use restoreFile which handles permissions and copying
 		return restoreFile(path, dstPath, dryRun)
 	})
 }

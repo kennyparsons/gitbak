@@ -7,42 +7,95 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/kennyparsons/gitbak/config"
 )
 
-// copyDir recursively copies a directory tree: srcDir → dstDir/<basename(srcDir)>
-func copyDir(srcDir, dstDirRoot string, dryRun bool) error {
-	base := filepath.Base(srcDir)
-	dstDir := filepath.Join(dstDirRoot, base)
+// copyDir recursively copies a directory tree: srcDir → dstDir
+// The destination directory will be created if it doesn't exist
+// The source directory's basename will be preserved in the destination
+func copyDir(srcDir, dstDir string, dryRun bool) error {
 	if dryRun {
 		fmt.Printf("[dry-run] CopyDir %s → %s\n", srcDir, dstDir)
 		return nil
 	}
+
+	// Create the destination directory if it doesn't exist
+	if err := os.MkdirAll(dstDir, 0755); err != nil {
+		return fmt.Errorf("failed to create destination directory: %v", err)
+	}
+
+	// Get source directory info to preserve permissions
+	srcInfo, err := os.Stat(srcDir)
+	if err != nil {
+		return fmt.Errorf("failed to stat source directory: %v", err)
+	}
+
+	// Ensure destination directory has the same permissions as source
+	if err := os.Chmod(dstDir, srcInfo.Mode()); err != nil {
+		return fmt.Errorf("failed to set directory permissions: %v", err)
+	}
+
 	return filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		rel, err := filepath.Rel(srcDir, path)
+
+		// Calculate the relative path from srcDir to the current path
+		relPath, err := filepath.Rel(srcDir, path)
 		if err != nil {
-			return err
+			return fmt.Errorf("error getting relative path: %v", err)
 		}
-		target := filepath.Join(dstDir, rel)
+
+		targetPath := filepath.Join(dstDir, relPath)
+
+		// Skip the root directory
+		if path == srcDir {
+			return nil
+		}
+
 		if info.IsDir() {
-			return os.MkdirAll(target, info.Mode())
+			// Create the directory with the same permissions as source
+			if err := os.MkdirAll(targetPath, info.Mode()); err != nil {
+				return fmt.Errorf("failed to create directory %s: %v", targetPath, err)
+			}
+			// Set directory permissions
+			return os.Chmod(targetPath, info.Mode())
 		}
-		return copyFile(path, target, dryRun)
+
+		// For files, copy directly to the target path
+		return copyFile(path, targetPath, dryRun)
 	})
 }
 
 // copyFile copies a single file to the specified destination path
-// If dstDirRoot is a directory, the file will be placed inside it with its original name
-// If dstDirRoot is a file path, it will be used as the exact destination path
+// dstPath can be either:
+// - A directory: file will be placed inside it with its original name
+// - A file path: will be used as the exact destination path
 func copyFile(srcFile, dstPath string, dryRun bool) error {
-	// Check if dstPath is a directory (ends with a separator or is an existing directory)
-	if dstInfo, err := os.Stat(dstPath); err == nil && dstInfo.IsDir() {
-		// If it's a directory, append the source filename
+	// Get source file info to preserve permissions
+	srcInfo, err := os.Stat(srcFile)
+	if err != nil {
+		return fmt.Errorf("failed to stat source file: %v", err)
+	}
+
+	// Check if dstPath is a directory (either exists as dir or ends with separator)
+	dstIsDir := false
+	if dstInfo, err := os.Stat(dstPath); err == nil {
+		dstIsDir = dstInfo.IsDir()
+	} else if strings.HasSuffix(dstPath, string(filepath.Separator)) {
+		dstIsDir = true
+	}
+
+	// If destination is a directory, append the source filename
+	if dstIsDir {
 		dstPath = filepath.Join(dstPath, filepath.Base(srcFile))
+	} else {
+		// Ensure the parent directory exists
+		if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
+			return fmt.Errorf("failed to create destination directory: %v", err)
+		}
 	}
 
 	if dryRun {
@@ -50,25 +103,31 @@ func copyFile(srcFile, dstPath string, dryRun bool) error {
 		return nil
 	}
 
-	// Create the destination directory if it doesn't exist
-	if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
-		return err
-	}
-
-	in, err := os.Open(srcFile)
+	// Open source file
+	src, err := os.Open(srcFile)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open source file: %v", err)
 	}
-	defer in.Close()
+	defer src.Close()
 
-	out, err := os.Create(dstPath)
+	// Create destination file with the same permissions as source
+	dst, err := os.OpenFile(dstPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, srcInfo.Mode())
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create destination file: %v", err)
 	}
-	defer out.Close()
+	defer dst.Close()
 
-	_, err = io.Copy(out, in)
-	return err
+	// Copy the file contents
+	if _, err = io.Copy(dst, src); err != nil {
+		return fmt.Errorf("failed to copy file contents: %v", err)
+	}
+
+	// Preserve file modification time
+	if err := os.Chtimes(dstPath, time.Now(), srcInfo.ModTime()); err != nil {
+		return fmt.Errorf("failed to preserve modification time: %v", err)
+	}
+
+	return nil
 }
 
 // getMackupPaths runs "mackup show <app>" and parses the output paths
@@ -103,39 +162,30 @@ func PerformBackup(cfg *config.Config, dryRun bool) error {
 		for _, relPath := range paths {
 			src := filepath.Join(os.Getenv("HOME"), relPath)
 			dst := filepath.Join(cfg.BackupDir, relPath)
+
 			if dryRun {
 				fmt.Printf("[dry-run] Copy %s → %s\n", src, dst)
 				continue
 			}
+
 			info, err := os.Stat(src)
 			if err != nil {
 				fmt.Printf("  [skipped] %s (does not exist)\n", src)
 				continue
 			}
+
 			if info.IsDir() {
-				if err := os.MkdirAll(dst, info.Mode()); err != nil {
-					fmt.Printf("  [error] mkdir %s: %v\n", dst, err)
-					continue
-				}
-				if err := filepath.Walk(src, func(path string, fi os.FileInfo, e error) error {
-					if e != nil {
-						return e
-					}
-					rp, _ := filepath.Rel(src, path)
-					target := filepath.Join(dst, rp)
-					if fi.IsDir() {
-						return os.MkdirAll(target, fi.Mode())
-					}
-					return copyFile(path, filepath.Dir(target), dryRun)
-				}); err != nil {
-					fmt.Printf("  [error] copying dir %s: %v\n", src, err)
+				// For directories, copy the contents directly to the destination
+				if err := copyDir(src, dst, dryRun); err != nil {
+					fmt.Printf("  [error] copying directory %s: %v\n", src, err)
 				}
 			} else {
+				// For files, ensure the parent directory exists and copy the file
 				if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
-					fmt.Printf("  [error] mkdir %s: %v\n", filepath.Dir(dst), err)
+					fmt.Printf("  [error] creating directory %s: %v\n", filepath.Dir(dst), err)
 					continue
 				}
-				if err := copyFile(src, filepath.Dir(dst), dryRun); err != nil {
+				if err := copyFile(src, dst, dryRun); err != nil {
 					fmt.Printf("  [error] copying file %s: %v\n", src, err)
 				}
 			}
@@ -146,6 +196,7 @@ func PerformBackup(cfg *config.Config, dryRun bool) error {
 	for appName, rawPaths := range cfg.CustomApps {
 		fmt.Printf("● Processing custom app: %s\n", appName)
 		dstRoot := filepath.Join(cfg.BackupDir, appName)
+
 		for _, rawPath := range rawPaths {
 			// Expand "~/" if present
 			src := rawPath
@@ -156,18 +207,42 @@ func PerformBackup(cfg *config.Config, dryRun bool) error {
 			if !filepath.IsAbs(rawPath) && !strings.HasPrefix(rawPath, "~/") {
 				src = filepath.Join(os.Getenv("HOME"), rawPath)
 			}
+
 			info, err := os.Stat(src)
 			if err != nil {
 				fmt.Printf("  [skipped] %s (does not exist)\n", src)
 				continue
 			}
+
+			// Create the destination directory if it doesn't exist
+			if err := os.MkdirAll(dstRoot, 0755); err != nil {
+				fmt.Printf("  [error] creating destination directory %s: %v\n", dstRoot, err)
+				continue
+			}
+
 			if info.IsDir() {
-				if err := copyDir(src, dstRoot, dryRun); err != nil {
-					fmt.Printf("  [error] copyDir %s → %s: %v\n", src, dstRoot, err)
+				// For directories, copy the entire directory (including its name) into the destination
+				dstPath := filepath.Join(dstRoot, filepath.Base(src))
+				if dryRun {
+					fmt.Printf("[dry-run] CopyDir %s → %s\n", src, dstPath)
+					continue
+				}
+				if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
+					fmt.Printf("  [error] creating directory %s: %v\n", filepath.Dir(dstPath), err)
+					continue
+				}
+				if err := copyDir(src, dstPath, dryRun); err != nil {
+					fmt.Printf("  [error] copying directory %s → %s: %v\n", src, dstPath, err)
 				}
 			} else {
-				if err := copyFile(src, dstRoot, dryRun); err != nil {
-					fmt.Printf("  [error] copyFile %s → %s: %v\n", src, dstRoot, err)
+				// For files, copy directly to the destination directory
+				dstPath := filepath.Join(dstRoot, filepath.Base(src))
+				if dryRun {
+					fmt.Printf("[dry-run] CopyFile %s → %s\n", src, dstPath)
+					continue
+				}
+				if err := copyFile(src, dstPath, dryRun); err != nil {
+					fmt.Printf("  [error] copying file %s → %s: %v\n", src, dstPath, err)
 				}
 			}
 		}
