@@ -12,6 +12,19 @@ import (
 	"github.com/kennyparsons/gitbak/config"
 )
 
+// expandPath expands ~/ and handles relative paths
+func expandPath(path string) string {
+	if strings.HasPrefix(path, "~/") {
+		home, _ := os.UserHomeDir()
+		return filepath.Join(home, path[2:])
+	}
+	if !filepath.IsAbs(path) {
+		home, _ := os.UserHomeDir()
+		return filepath.Join(home, path)
+	}
+	return path
+}
+
 // copyDir recursively copies a directory tree: srcDir → dstDir
 // The destination directory will be created if it doesn't exist
 // The source directory's basename will be preserved in the destination
@@ -152,13 +165,16 @@ func getMackupPaths(app string) ([]string, error) {
 
 // PerformBackup copies all files for supported and custom apps
 func PerformBackup(cfg *config.Config, dryRun bool) error {
-	// 1. Process Mackup-supported apps (preserve full path under BackupDir)
+	var allMetadata []FileMetadata
+
+	// 1. Process Mackup-supported apps
 	for _, app := range cfg.WhitelistBackupApps {
 		paths, err := getMackupPaths(app)
 		if err != nil {
 			fmt.Printf("Warning: cannot get mackup paths for %s: %v\n", app, err)
 			continue
 		}
+
 		for _, relPath := range paths {
 			src := filepath.Join(os.Getenv("HOME"), relPath)
 			dst := filepath.Join(cfg.BackupDir, relPath)
@@ -174,13 +190,19 @@ func PerformBackup(cfg *config.Config, dryRun bool) error {
 				continue
 			}
 
+			// Collect metadata
+			meta, err := collectFileMetadata(src, filepath.Dir(src))
+			if err != nil {
+				fmt.Printf("  [warning] Failed to collect metadata for %s: %v\n", src, err)
+			} else {
+				allMetadata = append(allMetadata, meta)
+			}
+
 			if info.IsDir() {
-				// For directories, copy the contents directly to the destination
 				if err := copyDir(src, dst, dryRun); err != nil {
 					fmt.Printf("  [error] copying directory %s: %v\n", src, err)
 				}
 			} else {
-				// For files, ensure the parent directory exists and copy the file
 				if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
 					fmt.Printf("  [error] creating directory %s: %v\n", filepath.Dir(dst), err)
 					continue
@@ -192,61 +214,55 @@ func PerformBackup(cfg *config.Config, dryRun bool) error {
 		}
 	}
 
-	// 2. Process custom apps (each under BackupDir/<appName>/)
+	// 2. Process custom apps
 	for appName, rawPaths := range cfg.CustomApps {
 		fmt.Printf("● Processing custom app: %s\n", appName)
 		dstRoot := filepath.Join(cfg.BackupDir, appName)
 
 		for _, rawPath := range rawPaths {
-			// Expand "~/" if present
-			src := rawPath
-			if strings.HasPrefix(rawPath, "~/") {
-				src = filepath.Join(os.Getenv("HOME"), rawPath[2:])
-			}
-			// If not absolute and not "~/", assume relative to HOME
-			if !filepath.IsAbs(rawPath) && !strings.HasPrefix(rawPath, "~/") {
-				src = filepath.Join(os.Getenv("HOME"), rawPath)
-			}
+			srcPath := expandPath(rawPath)
+			srcBase := filepath.Base(srcPath)
+			dstPath := filepath.Join(dstRoot, srcBase)
 
-			info, err := os.Stat(src)
+			info, err := os.Stat(srcPath)
 			if err != nil {
-				fmt.Printf("  [skipped] %s (does not exist)\n", src)
+				fmt.Printf("  [skipped] %s (does not exist)\n", srcPath)
 				continue
 			}
 
-			// Create the destination directory if it doesn't exist
-			if err := os.MkdirAll(dstRoot, 0755); err != nil {
-				fmt.Printf("  [error] creating destination directory %s: %v\n", dstRoot, err)
-				continue
+			// Collect metadata
+			meta, err := collectFileMetadata(srcPath, filepath.Dir(srcPath))
+			if err != nil {
+				fmt.Printf("  [warning] Failed to collect metadata for %s: %v\n", srcPath, err)
+			} else {
+				// Update path to be relative to backup root
+				meta.Path = filepath.Join(appName, filepath.Base(srcPath))
+				allMetadata = append(allMetadata, meta)
 			}
 
 			if info.IsDir() {
-				// For directories, copy the entire directory (including its name) into the destination
-				dstPath := filepath.Join(dstRoot, filepath.Base(src))
-				if dryRun {
-					fmt.Printf("[dry-run] CopyDir %s → %s\n", src, dstPath)
-					continue
-				}
-				if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
-					fmt.Printf("  [error] creating directory %s: %v\n", filepath.Dir(dstPath), err)
-					continue
-				}
-				if err := copyDir(src, dstPath, dryRun); err != nil {
-					fmt.Printf("  [error] copying directory %s → %s: %v\n", src, dstPath, err)
+				if err := copyDir(srcPath, dstPath, dryRun); err != nil {
+					fmt.Printf("  [error] copying directory %s: %v\n", srcPath, err)
 				}
 			} else {
-				// For files, copy directly to the destination directory
-				dstPath := filepath.Join(dstRoot, filepath.Base(src))
-				if dryRun {
-					fmt.Printf("[dry-run] CopyFile %s → %s\n", src, dstPath)
+				if err := os.MkdirAll(dstRoot, 0755); err != nil {
+					fmt.Printf("  [error] creating directory %s: %v\n", dstRoot, err)
 					continue
 				}
-				if err := copyFile(src, dstPath, dryRun); err != nil {
-					fmt.Printf("  [error] copying file %s → %s: %v\n", src, dstPath, err)
+				if err := copyFile(srcPath, dstPath, dryRun); err != nil {
+					fmt.Printf("  [error] copying file %s: %v\n", srcPath, err)
 				}
 			}
 		}
-		fmt.Println()
 	}
+
+	// Save metadata
+	if !dryRun && len(allMetadata) > 0 {
+		if err := saveMetadata(cfg.BackupDir, allMetadata); err != nil {
+			return fmt.Errorf("failed to save metadata: %v", err)
+		}
+		fmt.Println("✓ Saved file metadata")
+	}
+
 	return nil
 }

@@ -9,15 +9,27 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kennyparsons/gitbak/backup"
 	"github.com/kennyparsons/gitbak/config"
 )
 
 // Restore restores files from the backup directory to their original locations.
 // If appName is not empty, only restores the specified app.
 func Restore(cfg *config.Config, dryRun bool, appName string) error {
+	// Load metadata
+	metadata, err := loadMetadata(cfg.BackupDir)
+	if err != nil {
+		fmt.Printf("  [warning] Failed to load metadata: %v\n", err)
+	}
+
+	// Create a map for faster lookups
+	metadataMap := make(map[string]backup.FileMetadata)
+	for _, meta := range metadata {
+		metadataMap[meta.Path] = meta
+	}
+
 	// Process custom apps
 	for currentAppName, srcPaths := range cfg.CustomApps {
-		// If an app name was specified, skip other apps
 		if appName != "" && currentAppName != appName {
 			continue
 		}
@@ -25,26 +37,27 @@ func Restore(cfg *config.Config, dryRun bool, appName string) error {
 		fmt.Printf("● Restoring app: %s\n", currentAppName)
 		backupAppDir := filepath.Join(cfg.BackupDir, currentAppName)
 
-		// For each source path in the app's configuration
 		for _, srcPath := range srcPaths {
-			// Expand the source path (handle ~/ and relative paths)
 			expandedSrc := expandPath(srcPath)
-
-			// The backup path is in the app's directory
-			// For files: backupAppDir/filename
-			// For directories: backupAppDir/dirname/...
 			srcBase := filepath.Base(expandedSrc)
 			backupPath := filepath.Join(backupAppDir, srcBase)
 
-			// Check if the backup exists
 			if _, err := os.Stat(backupPath); os.IsNotExist(err) {
-				// If not found, try the old format (for backward compatibility)
 				backupPath = filepath.Join(backupAppDir, filepath.Base(expandedSrc))
 			}
 
 			// Handle the restore
-			if err := restorePath(backupPath, srcPath, dryRun); err != nil {
+			if err := restorePath(backupPath, expandedSrc, dryRun); err != nil {
 				fmt.Printf("  [error] restoring %s: %v\n", srcPath, err)
+			}
+
+			// Apply metadata if available
+			relPath := filepath.Join(currentAppName, filepath.Base(expandedSrc))
+			if meta, exists := metadataMap[relPath]; exists {
+				if err := applyMetadata(cfg.BackupDir, meta, dryRun); err != nil {
+					fmt.Printf("  [warning] Failed to apply metadata to %s: %v\n",
+						expandedSrc, err)
+				}
 			}
 		}
 	}
