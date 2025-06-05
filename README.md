@@ -7,13 +7,15 @@ Get your dotfiles/config files backed up and managed with git.
 
 GitBak is a simple tool to help you back up your dotfiles and configuration files using Git. It reads a configuration file (`gitbak.json`) to determine which files and directories to back up. 
 
-> Note: It can also work with mackup-supported applications. This is a work in progress and might break. The easiest solution is to just use `mackup show <appname>` to list the files/directories you need to back up and configure them in the `gitbak.json`.
+> Note: It can also work with mackup-supported applications. This will soon be depreciated and will break. The easiest solution is to just use `mackup show <appname>` to list the files/directories you need to back up and configure them in the `gitbak.json`.
 
 ## Features
-- Copies files and directories listed in `gitbak.json` to a backup directory
-- Supports custom app paths and folders
-- Commits and pushes changes to Git (must be a preconfigured git repo)
-- Dry-run mode to preview actions
+
+- Backup files and directories to a Git repository
+- Restore files to their original locations
+- Preserve file permissions and ownership (some cases might require root/sudo)
+- Support for extended attributes (xattrs)
+- Dry-run mode to preview changes
 
 ## Usage
 For testing:
@@ -40,11 +42,12 @@ chmod +x gitbak
 |------|-------------|
 | `--dry-run`  | Print actions without making changes |
 | `--config`   | Path to config file (default "./gitbak.json") |
+| `--app`      | Restore only a specific app |
 
 ## Configuration
 Edit `gitbak.json` to set:
 - `backup_dir`: Destination directory (should be a Git repo)
-- `whitelist_backup_apps`: List of Mackup-supported apps
+- `whitelist_backup_apps`: List of Mackup-supported apps (will be depreciated)
 - `custom_apps`: Map of app names to file/directory paths
 
 ## Example
