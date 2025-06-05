@@ -12,18 +12,24 @@ import (
 	"github.com/kennyparsons/gitbak/config"
 )
 
-// Restore restores files from the backup directory to their original locations
-func Restore(cfg *config.Config, dryRun bool) error {
+// Restore restores files from the backup directory to their original locations.
+// If appName is not empty, only restores the specified app.
+func Restore(cfg *config.Config, dryRun bool, appName string) error {
 	// Process custom apps
-	for appName, srcPaths := range cfg.CustomApps {
-		fmt.Printf("● Restoring app: %s\n", appName)
-		backupAppDir := filepath.Join(cfg.BackupDir, appName)
+	for currentAppName, srcPaths := range cfg.CustomApps {
+		// If an app name was specified, skip other apps
+		if appName != "" && currentAppName != appName {
+			continue
+		}
+
+		fmt.Printf("● Restoring app: %s\n", currentAppName)
+		backupAppDir := filepath.Join(cfg.BackupDir, currentAppName)
 
 		// For each source path in the app's configuration
 		for _, srcPath := range srcPaths {
 			// Expand the source path (handle ~/ and relative paths)
 			expandedSrc := expandPath(srcPath)
-			
+
 			// The backup path is in the app's directory
 			// For files: backupAppDir/filename
 			// For directories: backupAppDir/dirname/...
@@ -81,7 +87,7 @@ func restorePath(backupPath, originalPath string, dryRun bool) error {
 		backupDir := filepath.Dir(backupPath)
 		srcBase := filepath.Base(expandedOriginal)
 		backupPath = filepath.Join(backupDir, srcBase)
-		
+
 		backupInfo, err = os.Stat(backupPath)
 		if os.IsNotExist(err) {
 			return fmt.Errorf("backup not found: %s (tried %s)", filepath.Base(expandedOriginal), backupPath)

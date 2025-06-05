@@ -54,7 +54,7 @@ Edit `gitbak.json` to set:
   "whitelist_backup_apps": [],
   "custom_apps": {
     "gitbak": [
-      "/Users/kennyparsons/.config/gitbak.gitbak.json"
+      "/Users/kennyparsons/.config/gitbak/gitbak.json"
     ]
   }
 }

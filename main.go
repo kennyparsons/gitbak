@@ -22,11 +22,16 @@ Commands:
 Flags:
   --config string   Path to config file (default "./gitbak.json")
   --dry-run         Print actions without actually performing them.
+  --app string      When restoring, only restore this specific app
 
 When restoring, if a file already exists, you'll be prompted to:
   (s)kip: Skip this file
   (o)verwrite: Replace the existing file
-  (b)ackup: Create a backup of the existing file before restoring`)
+  (b)ackup: Create a backup of the existing file before restoring
+
+Examples:
+  gitbak restore --app ssh    # Only restore SSH configuration
+  gitbak restore             # Restore all configured apps`)
 }
 
 func main() {
@@ -38,6 +43,7 @@ func main() {
 	cmd := os.Args[1]
 	dryRun := flag.Bool("dry-run", false, "Print steps without executing")
 	configPath := flag.String("config", "./gitbak.json", "Path to config file (default: ./gitbak.json)")
+	appName := flag.String("app", "", "Only restore this specific app")
 	flag.CommandLine.Parse(os.Args[2:])
 
 	cfg, err := config.LoadConfig(*configPath)
@@ -61,7 +67,7 @@ func main() {
 			os.Exit(1)
 		}
 	case "restore":
-		if err := restore.Restore(cfg, *dryRun); err != nil {
+		if err := restore.Restore(cfg, *dryRun, *appName); err != nil {
 			fmt.Fprintf(os.Stderr, "Restore failed: %v\n", err)
 			os.Exit(1)
 		}
