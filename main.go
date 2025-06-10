@@ -22,6 +22,7 @@ Commands:
 Flags:
   --config string   Path to config file (default "./gitbak.json")
   --dry-run         Print actions without actually performing them.
+  --no-commit       Skip git add/commit/push after backup
   --app string      When restoring, only restore this specific app
 
 When restoring, if a file already exists, you'll be prompted to:
@@ -42,6 +43,7 @@ func main() {
 
 	cmd := os.Args[1]
 	dryRun := flag.Bool("dry-run", false, "Print steps without executing")
+	noCommit := flag.Bool("no-commit", false, "Skip git add/commit/push after backup")
 	configPath := flag.String("config", "./gitbak.json", "Path to config file (default: ./gitbak.json)")
 	appName := flag.String("app", "", "Only restore this specific app")
 	flag.CommandLine.Parse(os.Args[2:])
@@ -62,9 +64,13 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Backup failed: %v\n", err)
 			os.Exit(1)
 		}
-		if err := git.CommitAndPush(cfg.BackupDir, *dryRun); err != nil {
-			fmt.Fprintf(os.Stderr, "Git step failed: %v\n", err)
-			os.Exit(1)
+		if !*noCommit {
+			if err := git.CommitAndPush(cfg.BackupDir, *dryRun); err != nil {
+				fmt.Fprintf(os.Stderr, "Git step failed: %v\n", err)
+				os.Exit(1)
+			}
+		} else if !*dryRun {
+			fmt.Println("Skipping git commit/push as requested (--no-commit)")
 		}
 	case "restore":
 		if err := restore.Restore(cfg, *dryRun, *appName); err != nil {
