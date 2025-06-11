@@ -8,9 +8,8 @@ import (
 
 // Config represents the structure of gitbak.json
 type Config struct {
-	BackupDir           string              `json:"backup_dir"`
-	WhitelistBackupApps []string            `json:"whitelist_backup_apps"`
-	CustomApps          map[string][]string `json:"custom_apps"`
+	BackupDir  string              `json:"backup_dir"`
+	CustomApps map[string][]string `json:"custom_apps"`
 }
 
 // LoadConfig reads and parses gitbak.json into a Config struct
