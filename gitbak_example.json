@@ -1,6 +1,5 @@
 {
   "backup_dir": "/Users/kennyparsons/.dotfiles",
-  "whitelist_backup_apps": [],
   "custom_apps": {
     "iterm2": [
       "/Users/kennyparsons/.config/iterm2/AppSupport/DynamicProfiles",

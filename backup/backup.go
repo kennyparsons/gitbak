@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -143,78 +142,11 @@ func copyFile(srcFile, dstPath string, dryRun bool) error {
 	return nil
 }
 
-// getMackupPaths runs "mackup show <app>" and parses the output paths
-func getMackupPaths(app string) ([]string, error) {
-	cmd := exec.Command("mackup", "show", app)
-	out, err := cmd.Output()
-	if err != nil {
-		return nil, err
-	}
-	var paths []string
-	for _, line := range strings.Split(string(out), "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "-") {
-			parts := strings.Fields(line)
-			if len(parts) >= 2 {
-				paths = append(paths, parts[1])
-			}
-		}
-	}
-	return paths, nil
-}
-
-// PerformBackup copies all files for supported and custom apps
+// PerformBackup copies all files for custom apps
 func PerformBackup(cfg *config.Config, dryRun bool) error {
 	var allMetadata []FileMetadata
 
-	// 1. Process Mackup-supported apps
-	for _, app := range cfg.WhitelistBackupApps {
-		paths, err := getMackupPaths(app)
-		if err != nil {
-			fmt.Printf("Warning: cannot get mackup paths for %s: %v\n", app, err)
-			continue
-		}
-
-		for _, relPath := range paths {
-			src := filepath.Join(os.Getenv("HOME"), relPath)
-			dst := filepath.Join(cfg.BackupDir, relPath)
-
-			if dryRun {
-				fmt.Printf("[dry-run] Copy %s → %s\n", src, dst)
-				continue
-			}
-
-			info, err := os.Stat(src)
-			if err != nil {
-				fmt.Printf("  [skipped] %s (does not exist)\n", src)
-				continue
-			}
-
-			// Collect metadata
-			meta, err := collectFileMetadata(src, filepath.Dir(src))
-			if err != nil {
-				fmt.Printf("  [warning] Failed to collect metadata for %s: %v\n", src, err)
-			} else {
-				allMetadata = append(allMetadata, meta)
-			}
-
-			if info.IsDir() {
-				if err := copyDir(src, dst, dryRun); err != nil {
-					fmt.Printf("  [error] copying directory %s: %v\n", src, err)
-				}
-			} else {
-				if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
-					fmt.Printf("  [error] creating directory %s: %v\n", filepath.Dir(dst), err)
-					continue
-				}
-				if err := copyFile(src, dst, dryRun); err != nil {
-					fmt.Printf("  [error] copying file %s: %v\n", src, err)
-				}
-			}
-		}
-	}
-
-	// 2. Process custom apps
+	// Process custom apps
 	for appName, rawPaths := range cfg.CustomApps {
 		fmt.Printf("● Processing custom app: %s\n", appName)
 		dstRoot := filepath.Join(cfg.BackupDir, appName)
