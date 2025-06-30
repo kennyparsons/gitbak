@@ -1,22 +1,30 @@
 {
   "backup_dir": "/Users/kennyparsons/.dotfiles",
   "custom_apps": {
-    "iterm2": [
-      "/Users/kennyparsons/.config/iterm2/AppSupport/DynamicProfiles",
-      "/Users/kennyparsons/Library/Preferences/com.googlecode.iterm2.plist"
-    ],
-    "aws": [
-      "/Users/kennyparsons/.aws"
-    ],
-    "ssh": [
-      "/Users/kennyparsons/.ssh"
-    ],
-    "git": [
-      "/Users/kennyparsons/.gitconfig",
-      "/Users/kennyparsons/.config/git/attributes",
-      "/Users/kennyparsons/.config/git/ignore",
-      "/Users/kennyparsons/.config/git/credentials",
-      "/Users/kennyparsons/.config/git/config"
-    ]
+    "iterm2": {
+      "paths": [
+        "/Users/kennyparsons/.config/iterm2/AppSupport/DynamicProfiles",
+        "/Users/kennyparsons/Library/Preferences/com.googlecode.iterm2.plist"
+      ]
+    },
+    "aws": {
+      "paths": [
+        "/Users/kennyparsons/.aws"
+      ]
+    },
+    "ssh": {
+      "paths": [
+        "/Users/kennyparsons/.ssh"
+      ]
+    },
+    "git": {
+      "paths": [
+        "/Users/kennyparsons/.gitconfig",
+        "/Users/kennyparsons/.config/git/attributes",
+        "/Users/kennyparsons/.config/git/ignore",
+        "/Users/kennyparsons/.config/git/credentials",
+        "/Users/kennyparsons/.config/git/config"
+      ]
+    }
   }
 }

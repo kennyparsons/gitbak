@@ -7,9 +7,14 @@ import (
 )
 
 // Config represents the structure of gitbak.json
+type AppConfig struct {
+	Paths           []string `json:"paths"`
+	PreBackupScript string   `json:"pre_backup_script,omitempty"`
+}
+
 type Config struct {
-	BackupDir  string              `json:"backup_dir"`
-	CustomApps map[string][]string `json:"custom_apps"`
+	BackupDir  string                `json:"backup_dir"`
+	CustomApps map[string]AppConfig `json:"custom_apps"`
 }
 
 // LoadConfig reads and parses gitbak.json into a Config struct

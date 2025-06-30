@@ -45,16 +45,30 @@ chmod +x gitbak
 ## Configuration
 Edit `gitbak.json` to set:
 - `backup_dir`: Destination directory (should be a Git repo)
-- `custom_apps`: Map of app names to file/directory paths
+- `custom_apps`: Map of app names to their configuration, including paths and optional pre-backup scripts.
+
+### Custom App Configuration
+Each entry in `custom_apps` is an object with the following fields:
+- `paths`: An array of absolute file or directory paths to back up.
+- `pre_backup_script` (optional): An absolute path to a script to execute before backing up the app's paths. This script will be run using `bash -c`.
 
 ## Example
 ```json
 {
   "backup_dir": "/Users/kennyparsons/.dotfiles",
   "custom_apps": {
-    "gitbak": [
-      "/Users/kennyparsons/.config/gitbak/gitbak.json"
-    ]
+    "gitbak": {
+      "paths": [
+        "/Users/kennyparsons/.config/gitbak/gitbak.json"
+      ]
+    },
+    "brew": {
+      "paths": [
+        "/Users/kennyparsons/.config/brew/Brewfile",
+        "/Users/kennyparsons/.config/brew/brew_list.txt"
+      ],
+      "pre_backup_script": "/Users/kennyparsons/bin/brew_backup.sh backup"
+    }
   }
 }
 ```
