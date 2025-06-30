@@ -13,8 +13,9 @@ type AppConfig struct {
 }
 
 type Config struct {
-	BackupDir  string                `json:"backup_dir"`
-	CustomApps map[string]AppConfig `json:"custom_apps"`
+	BackupDir    string                `json:"backup_dir"`
+	CustomApps   map[string]AppConfig `json:"custom_apps"`
+	GlobalIgnores []string             `json:"global_ignores,omitempty"`
 }
 
 // LoadConfig reads and parses gitbak.json into a Config struct

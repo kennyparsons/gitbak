@@ -26,5 +26,12 @@
         "/Users/kennyparsons/.config/git/config"
       ]
     }
-  }
+  },
+  "global_ignores": [
+    "*.bak",
+    "*~",
+    "*.tmp",
+    "/path/to/specific/file.txt",
+    "/another/path/to/ignore/"
+  ]
 }
