@@ -4,25 +4,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/kennyparsons/gitbak/config"
+	"github.com/kennyparsons/gitbak/internal/utils"
 )
-
-// expandPath expands ~/ and handles relative paths
-func expandPath(path string) string {
-	if strings.HasPrefix(path, "~/") {
-		home, _ := os.UserHomeDir()
-		return filepath.Join(home, path[2:])
-	}
-	if !filepath.IsAbs(path) {
-		home, _ := os.UserHomeDir()
-		return filepath.Join(home, path)
-	}
-	return path
-}
 
 // copyDir recursively copies a directory tree: srcDir → dstDir
 // The destination directory will be created if it doesn't exist
@@ -147,12 +136,28 @@ func PerformBackup(cfg *config.Config, dryRun bool) error {
 	var allMetadata []FileMetadata
 
 	// Process custom apps
-	for appName, rawPaths := range cfg.CustomApps {
+	for appName, appCfg := range cfg.CustomApps {
 		fmt.Printf("● Processing custom app: %s\n", appName)
+
+		// Execute pre-backup script if defined
+		if appCfg.PreBackupScript != "" {
+			scriptPath := utils.ExpandPath(appCfg.PreBackupScript)
+			fmt.Printf("  Running pre-backup script: %s\n", scriptPath)
+			if !dryRun {
+				cmd := exec.Command("bash", "-c", scriptPath)
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				if err := cmd.Run(); err != nil {
+					return fmt.Errorf("pre-backup script failed for %s: %v", appName, err)
+				}
+			}
+		}
+
 		dstRoot := filepath.Join(cfg.BackupDir, appName)
 
-		for _, rawPath := range rawPaths {
-			srcPath := expandPath(rawPath)
+		for _, rawPath := range appCfg.Paths {
+
+			srcPath := utils.ExpandPath(rawPath)
 			srcBase := filepath.Base(srcPath)
 			dstPath := filepath.Join(dstRoot, srcBase)
 

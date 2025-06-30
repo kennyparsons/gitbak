@@ -11,6 +11,7 @@ import (
 
 	"github.com/kennyparsons/gitbak/backup"
 	"github.com/kennyparsons/gitbak/config"
+	"github.com/kennyparsons/gitbak/internal/utils"
 )
 
 // Restore restores files from the backup directory to their original locations.
@@ -29,7 +30,7 @@ func Restore(cfg *config.Config, dryRun bool, appName string) error {
 	}
 
 	// Process custom apps
-	for currentAppName, srcPaths := range cfg.CustomApps {
+	for currentAppName, appCfg := range cfg.CustomApps {
 		if appName != "" && currentAppName != appName {
 			continue
 		}
@@ -37,8 +38,8 @@ func Restore(cfg *config.Config, dryRun bool, appName string) error {
 		fmt.Printf("● Restoring app: %s\n", currentAppName)
 		backupAppDir := filepath.Join(cfg.BackupDir, currentAppName)
 
-		for _, srcPath := range srcPaths {
-			expandedSrc := expandPath(srcPath)
+		for _, srcPath := range appCfg.Paths {
+			expandedSrc := utils.ExpandPath(srcPath)
 			srcBase := filepath.Base(expandedSrc)
 			backupPath := filepath.Join(backupAppDir, srcBase)
 
@@ -65,32 +66,11 @@ func Restore(cfg *config.Config, dryRun bool, appName string) error {
 	return nil
 }
 
-// expandPath expands ~/ and handles relative paths
-func expandPath(path string) string {
-	// Expand ~/
-	if strings.HasPrefix(path, "~/") {
-		home, _ := os.UserHomeDir()
-		return filepath.Join(home, path[2:])
-	}
-	// Handle relative paths (assume relative to home)
-	if !filepath.IsAbs(path) {
-		home, _ := os.UserHomeDir()
-		return filepath.Join(home, path)
-	}
-	return path
-}
+
 
 func restorePath(backupPath, originalPath string, dryRun bool) error {
 	// Expand ~ in the original path
-	expandedOriginal := originalPath
-	if strings.HasPrefix(originalPath, "~/") {
-		home, _ := os.UserHomeDir()
-		expandedOriginal = filepath.Join(home, originalPath[2:])
-	} else if !filepath.IsAbs(originalPath) {
-		// Handle relative paths (assume relative to home)
-		home, _ := os.UserHomeDir()
-		expandedOriginal = filepath.Join(home, originalPath)
-	}
+	expandedOriginal := utils.ExpandPath(originalPath)
 
 	// Check if the backup path exists
 	backupInfo, err := os.Stat(backupPath)
