@@ -69,9 +69,19 @@ Each entry in `custom_apps` is an object with the following fields:
       ],
       "pre_backup_script": "/Users/kennyparsons/bin/brew_backup.sh backup"
     }
-  }
+  },
+  "global_ignores": [
+    "/Users/kennyparsons/.config/some_app/cache",
+    "/Users/kennyparsons/.local/share/some_other_app/*.log"
+  ]
 }
 ```
+
+### Global Ignores
+
+- `global_ignores` (optional): An array of glob patterns for files or directories to ignore during the backup process. These patterns are applied globally to all paths being backed up. This is useful for excluding temporary files, caches, or other data that should not be versioned.
+
+
 
 ## Requirements
 - Go 1.23+
