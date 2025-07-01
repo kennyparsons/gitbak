@@ -81,6 +81,7 @@ Each entry in `custom_apps` is an object with the following fields:
 
 - `global_ignores` (optional): An array of glob patterns for files or directories to ignore during the backup process. These patterns are applied globally to all paths being backed up. This is useful for excluding temporary files, caches, or other data that should not be versioned.
 
+> **Note:** for syntax and pattern help, refer to the go module used for matching: [doublestar](https://github.com/bmatcuk/doublestar?tab=readme-ov-file#patterns)
 
 
 ## Requirements
