@@ -1,12 +1,14 @@
 package backup
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bmatcuk/doublestar/v4"
@@ -87,7 +89,7 @@ func shouldIgnore(fullPath string, ignores []string) (bool, string, error) {
 // copyDir recursively copies a directory tree: srcDir → dstDir
 // The destination directory will be created if it doesn't exist
 // The source directory's basename will be preserved in the destination
-func copyDir(srcDir, dstDir string, dryRun bool, globalIgnores []string) error {
+func copyDir(srcDir, dstDir string, dryRun bool, globalIgnores []string, appName string) error {
 	if dryRun {
 		fmt.Printf("[dry-run] CopyDir %s → %s\n", srcDir, dstDir)
 		return nil
@@ -132,10 +134,10 @@ func copyDir(srcDir, dstDir string, dryRun bool, globalIgnores []string) error {
 		}
 		if ignore {
 			if info.IsDir() {
-				fmt.Printf("  [ignored] directory %s (globally ignored with \"%s\")\n", relPath, matchedPattern)
+				fmt.Printf("  %s: Ignored directory %s (globally ignored with \"%s\")\n", appName, relPath, matchedPattern)
 				return filepath.SkipDir // Skip this directory and its contents
 			}
-			fmt.Printf("  [ignored] file %s (globally ignored with \"%s\")\n", relPath, matchedPattern)
+			fmt.Printf("  %s: Ignored file %s (globally ignored with \"%s\")\n", appName, relPath, matchedPattern)
 			return nil // Skip this file
 		}
 
@@ -151,7 +153,7 @@ func copyDir(srcDir, dstDir string, dryRun bool, globalIgnores []string) error {
 		}
 
 		// For files, copy directly to the target path
-		return copyFile(path, targetPath, dryRun, globalIgnores)
+		return copyFile(path, targetPath, dryRun, globalIgnores, appName)
 	})
 }
 
@@ -159,7 +161,7 @@ func copyDir(srcDir, dstDir string, dryRun bool, globalIgnores []string) error {
 // dstPath can be either:
 // - A directory: file will be placed inside it with its original name
 // - A file path: will be used as the exact destination path
-func copyFile(srcFile, dstPath string, dryRun bool, globalIgnores []string) error {
+func copyFile(srcFile, dstPath string, dryRun bool, globalIgnores []string, appName string) error {
 	// Get source file info to preserve permissions
 	srcInfo, err := os.Stat(srcFile)
 	if err != nil {
@@ -218,77 +220,140 @@ func copyFile(srcFile, dstPath string, dryRun bool, globalIgnores []string) erro
 
 // PerformBackup copies all files for custom apps
 func PerformBackup(cfg *config.Config, dryRun bool) error {
-	var allMetadata []FileMetadata
+	var wg sync.WaitGroup
+	// Use a channel to collect errors from goroutines
+	errChan := make(chan error, len(cfg.CustomApps))
+	// Channel to send collected metadata from goroutines
+	metadataChan := make(chan FileMetadata, len(cfg.CustomApps)*100) // Buffer size is an estimate
 
-	// Process custom apps
+	// Process custom apps in parallel
 	for appName, appCfg := range cfg.CustomApps {
-		fmt.Printf("● Processing custom app: %s\n", appName)
+		wg.Add(1)
+		go func(appName string, appCfg config.AppConfig) {
+			defer wg.Done()
 
-		// Execute pre-backup script if defined
-		if appCfg.PreBackupScript != "" {
-			scriptPath := utils.ExpandPath(appCfg.PreBackupScript)
-			fmt.Printf("  Running pre-backup script: %s\n", scriptPath)
-			if !dryRun {
-				cmd := exec.Command("bash", "-c", scriptPath)
-				cmd.Stdout = os.Stdout
-				cmd.Stderr = os.Stderr
-				if err := cmd.Run(); err != nil {
-					return fmt.Errorf("pre-backup script failed for %s: %v", appName, err)
+			fmt.Printf("Processing custom app: %s\n", appName)
+
+			// Execute pre-backup script if defined
+			if appCfg.PreBackupScript != "" {
+				scriptPath := utils.ExpandPath(appCfg.PreBackupScript)
+				fmt.Printf("  %s: Running pre-backup script: %s\n", appName, scriptPath)
+				if !dryRun {
+					cmd := exec.Command("bash", "-c", scriptPath)
+					var stdoutBuf, stderrBuf bytes.Buffer
+					cmd.Stdout = &stdoutBuf
+					cmd.Stderr = &stderrBuf
+					cmdErr := cmd.Run() // Store the error
+
+					// Print stdout
+					if stdout := stdoutBuf.String(); stdout != "" {
+						for _, line := range strings.Split(strings.TrimSpace(stdout), "\n") {
+							fmt.Printf("  %s: Pre-backup script stdout: %s\n", appName, line)
+						}
+					}
+					// Print stderr
+					if stderr := stderrBuf.String(); stderr != "" {
+						for _, line := range strings.Split(strings.TrimSpace(stderr), "\n") {
+							fmt.Printf("  %s: Pre-backup script stderr: %s\n", appName, line)
+						}
+					}
+
+					if cmdErr != nil { // Now check the error and return if necessary
+						errChan <- fmt.Errorf("%s: pre-backup script failed: %v", appName, cmdErr)
+						return
+					}
 				}
 			}
-		}
 
-		dstRoot := filepath.Join(cfg.BackupDir, appName)
+			dstRoot := filepath.Join(cfg.BackupDir, appName)
 
-		for _, rawPath := range appCfg.Paths {
+			for _, rawPath := range appCfg.Paths {
 
-			srcPath := utils.ExpandPath(rawPath)
-			srcBase := filepath.Base(srcPath)
-			dstPath := filepath.Join(dstRoot, srcBase)
+				srcPath := utils.ExpandPath(rawPath)
+				srcBase := filepath.Base(srcPath)
+				dstPath := filepath.Join(dstRoot, srcBase)
 
-			info, err := os.Stat(srcPath)
-			if err != nil {
-				fmt.Printf("  [skipped] %s (does not exist)\n", srcPath)
-				continue
-			}
-
-			// Collect metadata
-			meta, err := collectFileMetadata(srcPath, filepath.Dir(srcPath))
-			if err != nil {
-				fmt.Printf("  [warning] Failed to collect metadata for %s: %v\n", srcPath, err)
-			} else {
-				// Update path to be relative to backup root
-				meta.Path = filepath.Join(appName, filepath.Base(srcPath))
-				allMetadata = append(allMetadata, meta)
-			}
-
-			if info.IsDir() {
-				if err := copyDir(srcPath, dstPath, dryRun, cfg.GlobalIgnores); err != nil {
-					fmt.Printf("  [error] copying directory %s: %v\n", srcPath, err)
+				info, err := os.Stat(srcPath)
+				if err != nil {
+					fmt.Printf("  %s: Skipped %s (does not exist)\n", appName, srcPath)
+					continue
 				}
-			} else {
-				// Check if the file itself should be ignored
-				// For single files, the pattern should match the full path relative to the source root
-				// Here, we consider the file's path relative to its parent directory for ignore matching
+
+				// Check if the root of the custom app path should be ignored
 				ignore, matchedPattern, err := shouldIgnore(srcPath, cfg.GlobalIgnores)
 				if err != nil {
-					fmt.Printf("  [error] checking ignore for %s: %v\n", srcPath, err)
+					errChan <- fmt.Errorf("%s: checking ignore for %s: %v", appName, srcPath, err)
 					continue
 				}
 				if ignore {
-					fmt.Printf("  [ignored] file %s (globally ignored with \"%s\")\n", srcPath, matchedPattern)
-					continue
+					fmt.Printf("  %s: Ignored %s (matched global ignore pattern \"%s\")\n", appName, srcPath, matchedPattern)
+					continue // Skip this entire app path
 				}
 
-				if err := os.MkdirAll(dstRoot, 0755); err != nil {
-					fmt.Printf("  [error] creating directory %s: %v\n", dstRoot, err)
-					continue
+				// Collect metadata within the goroutine
+				meta, err := collectFileMetadata(srcPath, filepath.Dir(srcPath))
+				if err != nil {
+					fmt.Printf("  %s: Failed to collect metadata for %s: %v\n", appName, srcPath, err)
+				} else {
+					meta.Path = filepath.Join(appName, filepath.Base(srcPath))
+					metadataChan <- meta // Send metadata to channel
 				}
-				if err := copyFile(srcPath, dstPath, dryRun, cfg.GlobalIgnores); err != nil {
-					fmt.Printf("  [error] copying file %s: %v\n", srcPath, err)
+
+				if info.IsDir() {
+					if err := copyDir(srcPath, dstPath, dryRun, cfg.GlobalIgnores, appName); err != nil {
+						errChan <- fmt.Errorf("%s: copying directory %s: %v", appName, srcPath, err)
+						continue
+					}
+				} else {
+					// Check if the file itself should be ignored
+					// For single files, the pattern should match the full path relative to the source root
+					// Here, we consider the file's path relative to its parent directory for ignore matching
+					ignore, matchedPattern, err := shouldIgnore(srcPath, cfg.GlobalIgnores)
+					if err != nil {
+						errChan <- fmt.Errorf("%s: checking ignore for %s: %v", appName, srcPath, err)
+						continue
+					}
+					if ignore {
+						fmt.Printf("  %s: Ignored file %s (globally ignored with \"%s\")\n", appName, srcPath, matchedPattern)
+						continue
+					}
+
+					if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
+						errChan <- fmt.Errorf("%s: creating directory %s: %v", appName, filepath.Dir(dstPath), err)
+						continue
+					}
+					if err := copyFile(srcPath, dstPath, dryRun, cfg.GlobalIgnores, appName); err != nil {
+						errChan <- fmt.Errorf("%s: copying file %s: %v", appName, srcPath, err)
+						continue
+					}
 				}
 			}
-		}
+			fmt.Printf("Finished processing custom app: %s\n", appName)
+		}(appName, appCfg)
+	}
+
+	// Wait for all goroutines to finish
+	wg.Wait()
+
+	// Close the metadata channel once all workers are done
+	close(metadataChan)
+
+	// Collect metadata from the channel in the main goroutine
+	var allMetadata []FileMetadata
+	for meta := range metadataChan {
+		allMetadata = append(allMetadata, meta)
+	}
+
+	// Close the error channel and collect errors
+	close(errChan)
+	var allErrors []error
+	for err := range errChan {
+		allErrors = append(allErrors, err)
+	}
+
+	// If any errors occurred, return the first one (or a combined error)
+	if len(allErrors) > 0 {
+		return fmt.Errorf("errors during backup: %v", allErrors)
 	}
 
 	// Save metadata
