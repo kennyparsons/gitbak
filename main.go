@@ -11,6 +11,8 @@ import (
 	"github.com/kennyparsons/gitbak/restore"
 )
 
+var version = "dev"
+
 func printHelp() {
 	fmt.Println(`
 Usage: gitbak <command> [flags]
@@ -24,6 +26,7 @@ Flags:
   --dry-run         Print actions without actually performing them.
   --no-commit       Skip git add/commit/push after backup
   --app string      When restoring, only restore this specific app
+  --version         Print the version and exit
 
 When restoring, if a file already exists, you'll be prompted to:
   (s)kip: Skip this file
@@ -36,12 +39,21 @@ Examples:
 }
 
 func main() {
-	if len(os.Args) < 2 {
+	versionFlag := flag.Bool("version", false, "Print the version and exit")
+
+	flag.Parse()
+
+	if *versionFlag {
+		fmt.Printf("gitbak version %s\n", version)
+		os.Exit(0)
+	}
+
+	if len(flag.Args()) < 1 {
 		printHelp()
 		os.Exit(1)
 	}
 
-	cmd := os.Args[1]
+	cmd := flag.Args()[0]
 	dryRun := flag.Bool("dry-run", false, "Print steps without executing")
 	noCommit := flag.Bool("no-commit", false, "Skip git add/commit/push after backup")
 	configPath := flag.String("config", "./gitbak.json", "Path to config file (default: ./gitbak.json)")
