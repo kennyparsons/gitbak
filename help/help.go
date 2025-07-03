@@ -7,6 +7,7 @@ import (
 // PrintGeneralHelp prints the general usage information for gitbak.
 func PrintGeneralHelp() {
 	fmt.Println(`
+Maintainer: @jiru
 Usage: gitbak <command> [flags]
 
 Commands:
