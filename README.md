@@ -14,7 +14,8 @@ GitBak is a simple tool to help you back up your dotfiles and configuration file
 The easiest way to install GitBak on macOS is with Homebrew:
 
 ```sh
-brew install kennyparsons/gitbak/gitbak
+brew tap kennyparsons/gitbak
+brew install gitbak
 ```
 
 ### Build from Source
