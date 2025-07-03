@@ -16,6 +16,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Semantic Release
+        id: semantic
         uses: cycjimmy/semantic-release-action@v4
         with:
           extra_plugins: |
