@@ -19,7 +19,9 @@ jobs:
         uses: cycjimmy/semantic-release-action@v4
         with:
           extra_plugins: |
-            @semantic-release/git @semantic-release/exec @semantic-release/changelog
+            @semantic-release/git
+            @semantic-release/exec
+            @semantic-release/changelog
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
       - name: Debug Semantic Release Output
