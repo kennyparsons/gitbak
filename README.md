@@ -7,29 +7,28 @@ Get your dotfiles/config files backed up and managed with Git.
 
 GitBak is a simple tool to help you back up your dotfiles and configuration files using Git.
 
-## Features
+## Installation
 
-- Backup files and directories to a Git repository
-- Restore files to their original locations
-- Preserve file permissions and ownership (some cases might require root/sudo)
-- Parallel processing for faster backups
-- Supports custom app paths and folders
-- Commits and pushes changes to Git (must be a preconfigured Git repo)
-- Dry-run mode to preview changes
-- *(Pending)* Support for extended attributes (xattrs)
+### Homebrew (macOS)
 
-## Usage
+The easiest way to install GitBak on macOS is with Homebrew:
 
-For testing:
 ```sh
-go run main.go <command> [--dry-run]
+brew install kennyparsons/gitbak/gitbak
 ```
 
-For building:
+### Build from Source
+
+You can also build GitBak from source:
+
 ```sh
+git clone https://github.com/kennyparsons/gitbak.git
+cd gitbak
 go build -o gitbak main.go
 chmod +x gitbak
 ```
+
+## Usage
 
 ### Commands
 
@@ -46,6 +45,7 @@ chmod +x gitbak
 | `--config`    | Path to config file (default `./gitbak.json`) |
 | `--app`       | Restore only a specific app |
 | `--no-commit` | Skip `git add/commit/push` after backup |
+| `--version`   | Show the version number |
 
 ## Configuration
 
@@ -92,6 +92,10 @@ Each app under `custom_apps` must include:
 Use `global_ignores` to skip caches, logs, or other files you don’t want to version. Patterns use [doublestar](https://github.com/bmatcuk/doublestar?tab=readme-ov-file#patterns) syntax for flexible matching.
 
 > **Note:** Always use absolute paths — `~` and relative paths will not work.
+
+## Versioning
+
+This project uses [semantic-release](https://github.com/semantic-release/semantic-release) to automate versioning. New versions are released automatically when changes are merged into the `main` branch.
 
 ## Requirements
 
