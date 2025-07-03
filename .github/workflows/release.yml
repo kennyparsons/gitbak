@@ -25,7 +25,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
       - name: Debug Semantic Release Output
-        run: echo 'New release published: ${{ steps.semantic.outputs.new_release_published }}'
+        run: |
+          echo "New release published: ${{ steps.semantic.outputs.new_release_published }}"
       - name: Run GoReleaser
         if: steps.semantic.outputs.new_release_published == 'true'
         env:
