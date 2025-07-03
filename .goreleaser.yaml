@@ -1,0 +1,56 @@
+version: 2
+
+project_name: gitbak
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+
+archives:
+  - format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_ 
+      {{- title .Os }}_ 
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+brews:
+  -
+    name: gitbak
+    commit_author:
+      name: Kenny Parsons
+      email: kenny@parsons.page
+    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+    directory: Formula
+    description: "A simple tool to help you back up your dotfiles and configuration files using Git."
+    license: "MIT"
+    install: |
+      bin.install "gitbak"
+    test: |
+      system "#{bin}/gitbak --version"
+    repository:
+      owner: kennyparsons
+      name: homebrew-gitbak
+      branch: main
+      token: "{{ .Env.GITHUB_TOKEN }}"
