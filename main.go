@@ -44,7 +44,7 @@ func main() {
 	flag.Parse()
 
 	if *versionFlag {
-		fmt.Printf("gitbak version %s\n", version)
+		fmt.Printf("%s\n", version)
 		os.Exit(0)
 	}
 
