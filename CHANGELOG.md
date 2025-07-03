@@ -1,3 +1,10 @@
+## [1.1.2](https://github.com/kennyparsons/gitbak/compare/v1.1.1...v1.1.2) (2025-07-03)
+
+
+### Bug Fixes
+
+* correct brew command and prevent unnecessary release runs ([#16](https://github.com/kennyparsons/gitbak/issues/16)) ([72bcd66](https://github.com/kennyparsons/gitbak/commit/72bcd66bb0b5ee093b4acaa8fbdb717e284ea986))
+
 ## [1.1.1](https://github.com/kennyparsons/gitbak/compare/v1.1.0...v1.1.1) (2025-07-03)
 
 
