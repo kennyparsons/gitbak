@@ -1,3 +1,12 @@
+## [1.2.1](https://github.com/kennyparsons/gitbak/compare/v1.2.0...v1.2.1) (2025-07-03)
+
+
+### Bug Fixes
+
+* Correct YAML syntax for debug step in release workflow ([9ec083a](https://github.com/kennyparsons/gitbak/commit/9ec083af62ac6dd443612871c704319f14b8975d))
+* Correct YAML syntax for debug step in release workflow (multi-line) ([3d477de](https://github.com/kennyparsons/gitbak/commit/3d477de88d208d0fc2d30e8949254c42d1bf7342))
+* Correct YAML syntax in release workflow ([0117245](https://github.com/kennyparsons/gitbak/commit/01172455f4b2b8a4fb691c6f5b00ff396ad9fd59))
+
 # [1.2.0](https://github.com/kennyparsons/gitbak/compare/v1.1.2...v1.2.0) (2025-07-03)
 
 
