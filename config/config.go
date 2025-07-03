@@ -51,3 +51,13 @@ func (c *Config) Validate() error {
 	}
 	return nil
 }
+
+// SaveConfig saves the current configuration to the specified path
+func (c *Config) SaveConfig(path string) error {
+	bytes, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return ioutil.WriteFile(path, bytes, 0644)
+}
