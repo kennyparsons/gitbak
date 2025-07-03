@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/kennyparsons/gitbak/add"
 	"github.com/kennyparsons/gitbak/backup"
 	"github.com/kennyparsons/gitbak/config"
 	"github.com/kennyparsons/gitbak/git"
@@ -18,6 +19,7 @@ func printHelp() {
 Usage: gitbak <command> [flags]
 
 Commands:
+  add       Add a file or folder to an app in the config.
   backup    Copy all configured files into the backup_dir and commit to Git.
   restore   Restore files from backup to their original locations.
 
@@ -25,7 +27,7 @@ Flags:
   --config string   Path to config file (default "./gitbak.json")
   --dry-run         Print actions without actually performing them.
   --no-commit       Skip git add/commit/push after backup
-  --app string      When restoring, only restore this specific app
+  --app string      When restoring or adding, specifies the app
   --version         Print the version and exit
 
 When restoring, if a file already exists, you'll be prompted to:
@@ -34,6 +36,7 @@ When restoring, if a file already exists, you'll be prompted to:
   (b)ackup: Create a backup of the existing file before restoring
 
 Examples:
+  gitbak add /path/to/file --app myapp
   gitbak restore --app ssh    # Only restore SSH configuration
   gitbak restore             # Restore all configured apps`)
 }
@@ -71,6 +74,24 @@ func main() {
 	}
 
 	switch cmd {
+	case "add":
+		if *appName == "" {
+			fmt.Fprintln(os.Stderr, "Error: --app flag is required for the add command")
+			os.Exit(1)
+		}
+		if len(flag.Args()) < 2 {
+			fmt.Fprintln(os.Stderr, "Error: path argument is required for the add command")
+			os.Exit(1)
+		}
+		pathToAdd := flag.Args()[1]
+		if err := add.Add(cfg, *appName, pathToAdd); err != nil {
+			fmt.Fprintf(os.Stderr, "Error adding path: %v\n", err)
+			os.Exit(1)
+		}
+		if err := cfg.SaveConfig(*configPath); err != nil {
+			fmt.Fprintf(os.Stderr, "Error saving config: %v\n", err)
+			os.Exit(1)
+		}
 	case "backup":
 		if err := backup.PerformBackup(cfg, *dryRun); err != nil {
 			fmt.Fprintf(os.Stderr, "Backup failed: %v\n", err)
