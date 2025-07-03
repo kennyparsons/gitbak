@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/kennyparsons/gitbak/compare/v1.1.2...v1.2.0) (2025-07-03)
+
+
+### Features
+
+* Implement add command and centralize help ([#17](https://github.com/kennyparsons/gitbak/issues/17)) ([2627342](https://github.com/kennyparsons/gitbak/commit/262734246f4f0f18c6858a36a9a3e89cc1fe7ea8))
+
 ## [1.1.2](https://github.com/kennyparsons/gitbak/compare/v1.1.1...v1.1.2) (2025-07-03)
 
 
