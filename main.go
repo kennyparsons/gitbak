@@ -9,109 +9,106 @@ import (
 	"github.com/kennyparsons/gitbak/backup"
 	"github.com/kennyparsons/gitbak/config"
 	"github.com/kennyparsons/gitbak/git"
+	"github.com/kennyparsons/gitbak/help"
+	"github.com/kennyparsons/gitbak/internal/utils"
 	"github.com/kennyparsons/gitbak/restore"
 )
 
 var version = "dev"
 
-func printHelp() {
-	fmt.Println(`
-Usage: gitbak <command> [flags]
-
-Commands:
-  add       Add a file or folder to an app in the config.
-  backup    Copy all configured files into the backup_dir and commit to Git.
-  restore   Restore files from backup to their original locations.
-
-Flags:
-  --config string   Path to config file (default "./gitbak.json")
-  --dry-run         Print actions without actually performing them.
-  --no-commit       Skip git add/commit/push after backup
-  --app string      When restoring or adding, specifies the app
-  --version         Print the version and exit
-
-When restoring, if a file already exists, you'll be prompted to:
-  (s)kip: Skip this file
-  (o)verwrite: Replace the existing file
-  (b)ackup: Create a backup of the existing file before restoring
-
-Examples:
-  gitbak add /path/to/file --app myapp
-  gitbak restore --app ssh    # Only restore SSH configuration
-  gitbak restore             # Restore all configured apps`)
-}
-
 func main() {
-	versionFlag := flag.Bool("version", false, "Print the version and exit")
+	// Subcommands
+	addCmd := flag.NewFlagSet("add", flag.ExitOnError)
+	addApp := addCmd.String("app", "", "App name to add the path to (required)")
+	addPath := addCmd.String("path", "", "Path to the file or folder to add (required)")
+	addConfig := addCmd.String("config", "~/.config/gitbak/gitbak.json", "Path to config file")
 
-	flag.Parse()
+	backupCmd := flag.NewFlagSet("backup", flag.ExitOnError)
+	backupDryRun := backupCmd.Bool("dry-run", false, "Print steps without executing")
+	backupNoCommit := backupCmd.Bool("no-commit", false, "Skip git add/commit/push after backup")
+	backupConfig := backupCmd.String("config", "~/.config/gitbak/gitbak.json", "Path to config file")
 
-	if *versionFlag {
-		fmt.Printf("%s\n", version)
-		os.Exit(0)
-	}
+	restoreCmd := flag.NewFlagSet("restore", flag.ExitOnError)
+	restoreDryRun := restoreCmd.Bool("dry-run", false, "Print steps without executing")
+	restoreApp := restoreCmd.String("app", "", "Only restore this specific app")
+	restoreConfig := restoreCmd.String("config", "~/.config/gitbak/gitbak.json", "Path to config file")
 
-	if len(flag.Args()) < 1 {
-		printHelp()
+	if len(os.Args) < 2 {
+		help.PrintGeneralHelp()
 		os.Exit(1)
 	}
 
-	cmd := flag.Args()[0]
-	dryRun := flag.Bool("dry-run", false, "Print steps without executing")
-	noCommit := flag.Bool("no-commit", false, "Skip git add/commit/push after backup")
-	configPath := flag.String("config", "./gitbak.json", "Path to config file (default: ./gitbak.json)")
-	appName := flag.String("app", "", "Only restore this specific app")
-	flag.CommandLine.Parse(os.Args[2:])
-
-	cfg, err := config.LoadConfig(*configPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
-		os.Exit(1)
-	}
-	if err := cfg.Validate(); err != nil {
-		fmt.Fprintf(os.Stderr, "Invalid config: %v\n", err)
-		os.Exit(1)
-	}
-
-	switch cmd {
+	switch os.Args[1] {
 	case "add":
-		if *appName == "" {
-			fmt.Fprintln(os.Stderr, "Error: --app flag is required for the add command")
+		addCmd.Parse(os.Args[2:])
+
+		if *addApp == "" {
+			fmt.Fprintln(os.Stderr, "Error: --app flag is required")
+			addCmd.Usage()
 			os.Exit(1)
 		}
-		if len(flag.Args()) < 2 {
-			fmt.Fprintln(os.Stderr, "Error: path argument is required for the add command")
+		if *addPath == "" {
+			fmt.Fprintln(os.Stderr, "Error: --path flag is required")
+			addCmd.Usage()
 			os.Exit(1)
 		}
-		pathToAdd := flag.Args()[1]
-		if err := add.Add(cfg, *appName, pathToAdd); err != nil {
+
+		configPath := utils.ExpandPath(*addConfig)
+
+		cfg, err := config.LoadConfig(configPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading config from %s: %v\n", configPath, err)
+			os.Exit(1)
+		}
+		if err := add.Add(cfg, *addApp, *addPath); err != nil {
 			fmt.Fprintf(os.Stderr, "Error adding path: %v\n", err)
 			os.Exit(1)
 		}
-		if err := cfg.SaveConfig(*configPath); err != nil {
+		if err := cfg.SaveConfig(configPath); err != nil {
 			fmt.Fprintf(os.Stderr, "Error saving config: %v\n", err)
 			os.Exit(1)
 		}
+		fmt.Printf("Successfully updated config at %s\n", configPath)
+
 	case "backup":
-		if err := backup.PerformBackup(cfg, *dryRun); err != nil {
+		backupCmd.Parse(os.Args[2:])
+		configPath := utils.ExpandPath(*backupConfig)
+		cfg, err := config.LoadConfig(configPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading config from %s: %v\n", configPath, err)
+			os.Exit(1)
+		}
+		if err := backup.PerformBackup(cfg, *backupDryRun); err != nil {
 			fmt.Fprintf(os.Stderr, "Backup failed: %v\n", err)
 			os.Exit(1)
 		}
-		if !*noCommit {
-			if err := git.CommitAndPush(cfg.BackupDir, *dryRun); err != nil {
+		if !*backupNoCommit {
+			if err := git.CommitAndPush(cfg.BackupDir, *backupDryRun); err != nil {
 				fmt.Fprintf(os.Stderr, "Git step failed: %v\n", err)
 				os.Exit(1)
 			}
-		} else if !*dryRun {
-			fmt.Println("Skipping git commit/push as requested (--no-commit)")
 		}
+
 	case "restore":
-		if err := restore.Restore(cfg, *dryRun, *appName); err != nil {
+		restoreCmd.Parse(os.Args[2:])
+		configPath := utils.ExpandPath(*restoreConfig)
+		cfg, err := config.LoadConfig(configPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading config from %s: %v\n", configPath, err)
+			os.Exit(1)
+		}
+		if err := restore.Restore(cfg, *restoreDryRun, *restoreApp); err != nil {
 			fmt.Fprintf(os.Stderr, "Restore failed: %v\n", err)
 			os.Exit(1)
 		}
+	case "--version", "-version":
+		fmt.Printf("%s\n", version)
+		os.Exit(0)
+	case "help":
+		help.PrintGeneralHelp()
+		os.Exit(0)
 	default:
-		printHelp()
+		help.PrintGeneralHelp()
 		os.Exit(1)
 	}
 }
