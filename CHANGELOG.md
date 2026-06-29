@@ -1,3 +1,10 @@
+## [1.3.2](https://github.com/kennyparsons/gitbak/compare/v1.3.1...v1.3.2) (2026-06-29)
+
+
+### Bug Fixes
+
+* resolve metadata restore target and path expansion bugs ([2668383](https://github.com/kennyparsons/gitbak/commit/2668383b2ee6de37d3fb46ecc3fb48baf7df8e38))
+
 ## [1.3.1](https://github.com/kennyparsons/gitbak/compare/v1.3.0...v1.3.1) (2025-07-03)
 
 
