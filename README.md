@@ -43,11 +43,12 @@ chmod +x gitbak
 
 | Flag | Description |
 |------|-------------|
-| `--dry-run`   | Print actions without making changes |
-| `--config`    | Path to config file (default `./gitbak.json`) |
-| `--app`       | Restore only a specific app |
-| `--no-commit` | Skip `git add/commit/push` after backup |
-| `--version`   | Show the version number |
+| `--dry-run`       | Print actions without making changes |
+| `--config`        | Path to config file (default `./gitbak.json`) |
+| `--app`           | Restore only a specific app |
+| `--no-commit`     | Skip `git add/commit/push` after backup |
+| `--path-override` | Regex path override (e.g. `pattern=replacement`, can be specified multiple times) |
+| `--version`       | Show the version number |
 
 ## Configuration
 

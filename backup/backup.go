@@ -221,7 +221,7 @@ func copyFile(srcFile, dstPath string, dryRun bool, globalIgnores []string, appN
 }
 
 // PerformBackup copies all files for custom apps
-func PerformBackup(cfg *config.Config, dryRun bool) error {
+func PerformBackup(cfg *config.Config, dryRun bool, overrides []utils.PathOverride) error {
 	var wg sync.WaitGroup
 	// Use a channel to collect errors from goroutines
 	errChan := make(chan error, len(cfg.CustomApps))
@@ -238,7 +238,7 @@ func PerformBackup(cfg *config.Config, dryRun bool) error {
 
 			// Execute pre-backup script if defined
 			if appCfg.PreBackupScript != "" {
-				scriptPath := utils.ExpandPath(appCfg.PreBackupScript)
+				scriptPath := utils.ExpandPath(appCfg.PreBackupScript, overrides)
 				fmt.Printf("  %s: Running pre-backup script: %s\n", appName, scriptPath)
 				if !dryRun {
 					cmd := exec.Command("bash", "-c", scriptPath)
@@ -271,7 +271,7 @@ func PerformBackup(cfg *config.Config, dryRun bool) error {
 
 			for _, rawPath := range appCfg.Paths {
 
-				srcPath := utils.ExpandPath(rawPath)
+				srcPath := utils.ExpandPath(rawPath, overrides)
 				srcBase := filepath.Base(srcPath)
 				dstPath := filepath.Join(dstRoot, srcBase)
 

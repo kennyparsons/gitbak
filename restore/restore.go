@@ -16,7 +16,7 @@ import (
 
 // Restore restores files from the backup directory to their original locations.
 // If appName is not empty, only restores the specified app.
-func Restore(cfg *config.Config, dryRun bool, appName string) error {
+func Restore(cfg *config.Config, dryRun bool, appName string, overrides []utils.PathOverride) error {
 	// Load metadata
 	metadata, err := loadMetadata(cfg.BackupDir)
 	if err != nil {
@@ -39,7 +39,7 @@ func Restore(cfg *config.Config, dryRun bool, appName string) error {
 		backupAppDir := filepath.Join(cfg.BackupDir, currentAppName)
 
 		for _, srcPath := range appCfg.Paths {
-			expandedSrc := utils.ExpandPath(srcPath)
+			expandedSrc := utils.ExpandPath(srcPath, overrides)
 			srcBase := filepath.Base(expandedSrc)
 			backupPath := filepath.Join(backupAppDir, srcBase)
 
@@ -70,7 +70,7 @@ func Restore(cfg *config.Config, dryRun bool, appName string) error {
 
 func restorePath(backupPath, originalPath string, dryRun bool) error {
 	// Expand ~ in the original path
-	expandedOriginal := utils.ExpandPath(originalPath)
+	expandedOriginal := utils.ExpandPath(originalPath, nil)
 
 	// Check if the backup path exists
 	backupInfo, err := os.Stat(backupPath)

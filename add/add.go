@@ -13,7 +13,7 @@ import (
 // Add adds a new path to a specified app in the configuration.
 // If the app doesn't exist, it will be created.
 func Add(cfg *config.Config, appName string, pathToAdd string) error {
-	expandedPath := utils.ExpandPath(pathToAdd)
+	expandedPath := utils.ExpandPath(pathToAdd, nil)
 	// Ensure the path is absolute
 	absPath, err := filepath.Abs(expandedPath)
 
