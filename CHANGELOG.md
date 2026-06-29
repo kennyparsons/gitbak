@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/kennyparsons/gitbak/compare/v1.3.2...v1.4.0) (2026-06-29)
+
+
+### Features
+
+* add path-override flag for backup and restore ([9a304ba](https://github.com/kennyparsons/gitbak/commit/9a304baec049cc1a8f4aed8cc2f962e474aa92f1))
+
 ## [1.3.2](https://github.com/kennyparsons/gitbak/compare/v1.3.1...v1.3.2) (2026-06-29)
 
 
