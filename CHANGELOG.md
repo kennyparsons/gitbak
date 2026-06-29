@@ -1,3 +1,10 @@
+## [1.4.1](https://github.com/kennyparsons/gitbak/compare/v1.4.0...v1.4.1) (2026-06-29)
+
+
+### Bug Fixes
+
+* apply overrides to backup_dir and fix dry-run metadata warnings ([e1218bd](https://github.com/kennyparsons/gitbak/commit/e1218bd700cbefb8766a43a3c97018f6a240fb08))
+
 # [1.4.0](https://github.com/kennyparsons/gitbak/compare/v1.3.2...v1.4.0) (2026-06-29)
 
 
