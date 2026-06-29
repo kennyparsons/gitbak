@@ -35,6 +35,7 @@ chmod +x gitbak
 
 | Command | Description |
 |---------|-------------|
+| `add`     | Add a file or folder to an app in the config |
 | `backup`  | Copy configured files to the backup directory and commit to Git |
 | `restore` | Restore files from the backup directory |
 

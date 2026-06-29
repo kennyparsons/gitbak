@@ -55,7 +55,7 @@ func Restore(cfg *config.Config, dryRun bool, appName string) error {
 			// Apply metadata if available
 			relPath := filepath.Join(currentAppName, filepath.Base(expandedSrc))
 			if meta, exists := metadataMap[relPath]; exists {
-				if err := applyMetadata(cfg.BackupDir, meta, dryRun); err != nil {
+				if err := applyMetadata(expandedSrc, meta, dryRun); err != nil {
 					fmt.Printf("  [warning] Failed to apply metadata to %s: %v\n",
 						expandedSrc, err)
 				}
