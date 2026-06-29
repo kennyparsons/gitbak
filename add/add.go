@@ -7,13 +7,16 @@ import (
 	"path/filepath"
 
 	"github.com/kennyparsons/gitbak/config"
+	"github.com/kennyparsons/gitbak/internal/utils"
 )
 
 // Add adds a new path to a specified app in the configuration.
 // If the app doesn't exist, it will be created.
 func Add(cfg *config.Config, appName string, pathToAdd string) error {
+	expandedPath := utils.ExpandPath(pathToAdd)
 	// Ensure the path is absolute
-	absPath, err := filepath.Abs(pathToAdd)
+	absPath, err := filepath.Abs(expandedPath)
+
 	if err != nil {
 		return fmt.Errorf("could not get absolute path for %s: %v", pathToAdd, err)
 	}

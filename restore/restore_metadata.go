@@ -28,9 +28,7 @@ func loadMetadata(backupRoot string) ([]backup.FileMetadata, error) {
 }
 
 // applyMetadata applies the stored metadata to a file or directory
-func applyMetadata(backupRoot string, meta backup.FileMetadata, dryRun bool) error {
-	targetPath := filepath.Join(backupRoot, meta.Path)
-
+func applyMetadata(targetPath string, meta backup.FileMetadata, dryRun bool) error {
 	// Check if the target exists
 	if _, err := os.Lstat(targetPath); os.IsNotExist(err) {
 		return fmt.Errorf("target file does not exist: %s", targetPath)

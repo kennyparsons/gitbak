@@ -32,6 +32,7 @@ func shouldIgnore(fullPath string, ignores []string) (bool, string, error) {
 
 	// Keep track of the last matching pattern (negated or not)
 	matched := false
+	matchedPattern := ""
 
 	for _, pattern := range ignores {
 		pattern = strings.TrimSpace(pattern)
@@ -77,13 +78,14 @@ func shouldIgnore(fullPath string, ignores []string) (bool, string, error) {
 		if match {
 			if negate {
 				matched = false // Negate previous match
+				matchedPattern = ""
 			} else {
 				matched = true // This pattern matches
-				return matched, pattern, nil
+				matchedPattern = pattern
 			}
 		}
 	}
-	return matched, "", nil
+	return matched, matchedPattern, nil
 }
 
 // copyDir recursively copies a directory tree: srcDir → dstDir
