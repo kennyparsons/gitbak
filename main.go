@@ -88,6 +88,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error parsing path overrides: %v\n", err)
 			os.Exit(1)
 		}
+		cfg.BackupDir = utils.ExpandPath(cfg.BackupDir, overrides)
 		if err := backup.PerformBackup(cfg, *backupDryRun, overrides); err != nil {
 			fmt.Fprintf(os.Stderr, "Backup failed: %v\n", err)
 			os.Exit(1)
@@ -112,6 +113,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error parsing path overrides: %v\n", err)
 			os.Exit(1)
 		}
+		cfg.BackupDir = utils.ExpandPath(cfg.BackupDir, overrides)
 		if err := restore.Restore(cfg, *restoreDryRun, *restoreApp, overrides); err != nil {
 			fmt.Fprintf(os.Stderr, "Restore failed: %v\n", err)
 			os.Exit(1)
